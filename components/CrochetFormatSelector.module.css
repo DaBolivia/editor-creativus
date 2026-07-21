@@ -1,7 +1,7 @@
 .section {
   position: relative;
   overflow: hidden;
-  padding: 112px 0;
+  padding: 45px 0;
   /* Trocamos o degradê pela sua cor sólida */
   background: #F6EBEA;
   /* Mudamos a cor base do texto para escuro */
