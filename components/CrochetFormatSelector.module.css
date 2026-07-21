@@ -19,12 +19,12 @@
 .heading h2 {
   max-width: 790px;
   margin-bottom: 0;
-  color: #fff;
+  color: #333333;
 }
 
 .heading p {
   margin-bottom: 4px;
-  color: rgba(255, 255, 255, 0.74);
+  color: #333333;
 }
 
 .generalError {
@@ -37,7 +37,7 @@
   margin-bottom: 20px;
   padding: 16px 18px;
   background: rgba(70, 13, 33, 0.28);
-  color: #fff;
+  color: #333333;
   font-size: 0.85rem;
 }
 
@@ -47,7 +47,7 @@
   border-radius: 999px;
   padding: 0 15px;
   background: rgba(255, 255, 255, 0.12);
-  color: #fff;
+  color: #333333;
   font-size: 0.72rem;
   font-weight: 900;
   cursor: pointer;
