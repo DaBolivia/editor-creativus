@@ -2,10 +2,10 @@
   position: relative;
   overflow: hidden;
   padding: 112px 0;
-  background:
-    radial-gradient(circle at 8% 12%, rgba(255, 255, 255, 0.1), transparent 25%),
-    linear-gradient(135deg, #6f2039, #9c3858);
-  color: #fff;
+  /* Trocamos o degradê pela sua cor sólida */
+  background: #F6EBEA;
+  /* Mudamos a cor base do texto para escuro */
+  color: #333333; 
 }
 
 .heading {
