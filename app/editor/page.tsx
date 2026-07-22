@@ -1,4 +1,7 @@
+"use client";
+
 import { CrochetFormatSelector } from "@/components/CrochetFormatSelector";
+import { useEffect } from "react";
 
 const crochetFormats = [
   {
@@ -34,8 +37,29 @@ const crochetFormats = [
 ] as const;
 
 export default function EditorIsolado() {
+  
+  useEffect(() => {
+    // Função que calcula a altura e envia para o Elementor
+    const sendHeight = () => {
+      const height = document.body.scrollHeight;
+      window.parent.postMessage({ type: 'resize', height: height }, '*');
+    };
+
+    // Envia a altura assim que a página carrega
+    sendHeight();
+
+    // Cria o vigia: sempre que a tela expandir (ex: abrir opções), avisa o Elementor
+    const observer = new ResizeObserver(() => {
+      sendHeight();
+    });
+    
+    observer.observe(document.body);
+
+    return () => observer.disconnect();
+  }, []);
+
   return (
-    <main style={{ minHeight: "100vh", backgroundColor: "#F6EBEA" }}>
+    <main style={{ minHeight: "100vh", backgroundColor: "#F6EBEA", overflow: "hidden" }}>
       <CrochetFormatSelector formats={crochetFormats} materialColor="DOU" />
     </main>
   );
