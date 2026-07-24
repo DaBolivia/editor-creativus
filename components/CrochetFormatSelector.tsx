@@ -157,6 +157,7 @@ export function CrochetFormatSelector({
   materialColor = "DOU",
 }: CrochetFormatSelectorProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const containerRef = useRef<HTMLElement>(null); // REF adicionada para medir a altura
 
   const [results, setResults] = useState<FormatLoadResult[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -327,6 +328,20 @@ export function CrochetFormatSelector({
     };
   }, [editorReady, materialColor, previewRequest]);
 
+  // Mensageiro de Altura: Avisa o Elementor sempre que uma tela muda
+  useEffect(() => {
+    const sendHeight = () => {
+      if (containerRef.current) {
+        const height = containerRef.current.getBoundingClientRect().height;
+        window.parent.postMessage({ type: 'resize', height: height }, '*');
+      }
+    };
+
+    // Aguarda a tela renderizar e manda a altura
+    const timerId = setTimeout(sendHeight, 150);
+    return () => clearTimeout(timerId);
+  }, [selectedSku, showPreview, personalizationMode, logoFile, isGeneratingPreview, isLoading]);
+
   function resetPersonalization() {
     setPersonalizationMode(null);
     setLogoFile(null);
@@ -472,7 +487,12 @@ export function CrochetFormatSelector({
   };
 
   return (
-    <section className={styles.section} id="escolher-formato" style={{ minHeight: '100vh', padding: '45px 0 15px' }}>
+    <section 
+      ref={containerRef} 
+      className={styles.section} 
+      id="escolher-formato" 
+      style={{ padding: '45px 0 15px' }}
+    >
       <div className="container">
         
         {/* TELA 1 - SELEÇÃO DE FORMATO (Fica oculta quando as outras estão ativas) */}

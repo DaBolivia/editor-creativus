@@ -37,7 +37,7 @@ const crochetFormats = [
 
 export default function EditorIsolado() {
   return (
-    <main style={{ backgroundColor: "#F6EBEA", minHeight: "100vh" }}>
+    <main style={{ backgroundColor: "#F6EBEA" }}>
       <CrochetFormatSelector formats={crochetFormats} materialColor="DOU" />
     </main>
   );
