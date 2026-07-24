@@ -38,19 +38,28 @@ const crochetFormats = [
 
 export default function EditorIsolado() {
   const contentRef = useRef<HTMLDivElement>(null);
+  const lastHeight = useRef<number>(0);
 
   useEffect(() => {
     const sendHeight = () => {
       if (contentRef.current) {
         const height = contentRef.current.offsetHeight;
-        window.parent.postMessage({ type: 'resize', height: height }, '*');
+        
+        // Trava de segurança: Só redimensiona se a diferença for maior que 5 pixels
+        if (Math.abs(height - lastHeight.current) > 5) {
+          lastHeight.current = height;
+          window.parent.postMessage({ type: 'resize', height: height }, '*');
+        }
       }
     };
 
     setTimeout(sendHeight, 150);
 
     const observer = new ResizeObserver(() => {
-      sendHeight();
+      // requestAnimationFrame garante que o aviso só seja enviado quando a tela estiver estável
+      requestAnimationFrame(() => {
+        sendHeight();
+      });
     });
     
     if (contentRef.current) {
