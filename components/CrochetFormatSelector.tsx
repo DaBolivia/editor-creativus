@@ -48,9 +48,6 @@ type PreviewRequest = {
 };
 
 const MAX_LOGO_SIZE_BYTES = 15 * 1024 * 1024;
-// A escrita pública agora passa pelo mesmo motor completo do editor: fonte real,
-// conversão em curvas soldadas e validação contra o contorno roxo. O primeiro uso
-// pode incluir o carregamento do motor de curvas, portanto recebe um limite próprio.
 const LOGO_PREVIEW_TIMEOUT_MS = 18_000;
 const TEXT_PREVIEW_TIMEOUT_MS = 45_000;
 
@@ -165,7 +162,6 @@ export function CrochetFormatSelector({
 }: CrochetFormatSelectorProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const customizerRef = useRef<HTMLDivElement>(null);
-  const previewRef = useRef<HTMLDivElement>(null);
   const lastSentPreviewIdRef = useRef<string | null>(null);
 
   const [results, setResults] = useState<FormatLoadResult[]>([]);
@@ -472,10 +468,8 @@ export function CrochetFormatSelector({
       lastSentPreviewIdRef.current = null;
       setShowPreview(true);
       setPreviewRequest(request);
-
-      window.requestAnimationFrame(() => {
-        previewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-      });
+      
+      // Removida a lógica de Scroll, pois a tela vai se moldar no lugar da anterior
     } catch (error) {
       setIsGeneratingPreview(false);
       setPersonalizationError(
@@ -521,10 +515,8 @@ export function CrochetFormatSelector({
     lastSentPreviewIdRef.current = null;
     setShowPreview(true);
     setPreviewRequest(request);
-
-    window.requestAnimationFrame(() => {
-      previewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
+    
+    // Removida a lógica de Scroll
   }
 
   function handlePreviewError(event: SyntheticEvent<HTMLImageElement>) {
@@ -536,328 +528,342 @@ export function CrochetFormatSelector({
   return (
     <section className={styles.section} id="escolher-formato">
       <div className="container">
-        <div className={styles.heading}>
-          <div>
-            <span className="eyebrow eyebrow--light">Etapa 1</span>
-            <h2>Escolha o formato que combina com a sua marca</h2>
+        
+        {/* BLOCO DA ETAPA 1 - Oculto quando a Visualização estiver ativa */}
+        <div style={{ display: showPreview ? "none" : "block" }}>
+          <div className={styles.heading}>
+            <div>
+              <span className="eyebrow eyebrow--light">Etapa 1</span>
+              <h2>Escolha o formato que combina com a sua marca</h2>
+            </div>
+            <p>
+              Depois da escolha, você poderá enviar sua logo ou criar uma escrita
+              personalizada. Por enquanto, o resultado será apenas visualizado.
+            </p>
           </div>
-          <p>
-            Depois da escolha, você poderá enviar sua logo ou criar uma escrita
-            personalizada. Por enquanto, o resultado será apenas visualizado.
-          </p>
-        </div>
 
-        {loadError ? (
-          <div className={styles.generalError}>
-            <span>{loadError}</span>
-            <button type="button" onClick={() => setReloadKey((value) => value + 1)}>
-              Tentar novamente
-            </button>
-          </div>
-        ) : null}
+          {loadError ? (
+            <div className={styles.generalError}>
+              <span>{loadError}</span>
+              <button type="button" onClick={() => setReloadKey((value) => value + 1)}>
+                Tentar novamente
+              </button>
+            </div>
+          ) : null}
 
-        <div className={styles.grid} aria-busy={isLoading}>
-          {isLoading
-            ? formats.map((format) => (
-                <div className={styles.skeleton} key={format.sku}>
-                  <span />
-                  <strong />
-                  <small />
-                </div>
-              ))
-            : cards.map((format) => {
-                const isSelected = format.sku === selectedSku;
+          <div className={styles.grid} aria-busy={isLoading}>
+            {isLoading
+              ? formats.map((format) => (
+                  <div className={styles.skeleton} key={format.sku}>
+                    <span />
+                    <strong />
+                    <small />
+                  </div>
+                ))
+              : cards.map((format) => {
+                  const isSelected = format.sku === selectedSku;
 
-                return (
-                  <button
-                    className={`${styles.card} ${
-                      isSelected ? styles.cardSelected : ""
-                    } ${!format.success ? styles.cardError : ""}`}
-                    disabled={!format.success}
-                    key={format.sku}
-                    onClick={() => selectFormat(format)}
-                    type="button"
-                  >
-                    <div className={styles.preview}>
-                      {format.success ? (
-                        <>
-                          <Image
-                            alt={`Prévia do formato ${format.title}`}
-                            height={180}
-                            onError={handlePreviewError}
-                            src={createSvgPreviewUrl(format.svgData, materialColor)}
-                            unoptimized
-                            width={220}
-                          />
-                          <span className={styles.previewFallback} hidden>
-                            Prévia indisponível
+                  return (
+                    <button
+                      className={`${styles.card} ${
+                        isSelected ? styles.cardSelected : ""
+                      } ${!format.success ? styles.cardError : ""}`}
+                      disabled={!format.success}
+                      key={format.sku}
+                      onClick={() => selectFormat(format)}
+                      type="button"
+                    >
+                      <div className={styles.preview}>
+                        {format.success ? (
+                          <>
+                            <Image
+                              alt={`Prévia do formato ${format.title}`}
+                              height={180}
+                              onError={handlePreviewError}
+                              src={createSvgPreviewUrl(format.svgData, materialColor)}
+                              unoptimized
+                              width={220}
+                            />
+                            <span className={styles.previewFallback} hidden>
+                              Prévia indisponível
+                            </span>
+                          </>
+                        ) : (
+                          <span className={styles.previewFallback}>
+                            Formato indisponível
                           </span>
-                        </>
-                      ) : (
-                        <span className={styles.previewFallback}>
-                          Formato indisponível
-                        </span>
-                      )}
-                    </div>
+                        )}
+                      </div>
 
-                    <div className={styles.cardContent}>
-                      <span className={styles.sku}>{format.sku}</span>
-                      <strong>{format.title}</strong>
-                      <small>
-                        {format.success ? format.description : format.error}
-                      </small>
-                    </div>
+                      <div className={styles.cardContent}>
+                        <span className={styles.sku}>{format.sku}</span>
+                        <strong>{format.title}</strong>
+                        <small>
+                          {format.success ? format.description : format.error}
+                        </small>
+                      </div>
 
-                    <span className={styles.cardAction}>
-                      {isSelected ? "Formato selecionado" : "Escolher este formato"}
-                      <span aria-hidden="true">→</span>
-                    </span>
-                  </button>
-                );
-              })}
+                      <span className={styles.cardAction}>
+                        {isSelected ? "Formato selecionado" : "Escolher este formato"}
+                        <span aria-hidden="true">→</span>
+                      </span>
+                    </button>
+                  );
+                })}
+          </div>
         </div>
 
         {selectedFormat ? (
           <div className={styles.customizer} ref={customizerRef}>
-            <header className={styles.customizerHeader}>
-              <div>
-                <span>Formato escolhido</span>
-                <h3>{selectedFormat.title}</h3>
-                <p>{selectedFormat.sku} · acrílico dourado</p>
-              </div>
-              <button onClick={closeCustomizer} type="button">
-                Trocar formato
-              </button>
-            </header>
-
-            <div className={styles.steps} aria-label="Etapas da personalização">
-              <div className={styles.stepComplete}>
-                <span>1</span>
-                <strong>Formato</strong>
-                <small>Concluído</small>
-              </div>
-              <div className={personalizationMode ? styles.stepComplete : styles.stepActive}>
-                <span>2</span>
-                <strong>Personalização</strong>
-                <small>{personalizationMode ? "Escolhida" : "Agora"}</small>
-              </div>
-              <div className={showPreview ? styles.stepComplete : ""}>
-                <span>3</span>
-                <strong>Visualização</strong>
-                <small>{showPreview ? "Gerada" : "Próxima"}</small>
-              </div>
-            </div>
-
-            <div className={styles.customizerIntro}>
-              <span className={styles.customizerKicker}>Etapa 2</span>
-              <h3>Como você deseja personalizar?</h3>
-              <p>
-                Escolha uma opção. Você poderá trocar antes de finalizar esta
-                visualização.
-              </p>
-            </div>
-
-            <div className={styles.methodGrid}>
-              <button
-                className={`${styles.methodCard} ${
-                  personalizationMode === "logo" ? styles.methodCardActive : ""
-                }`}
-                onClick={() => choosePersonalizationMode("logo")}
-                type="button"
-              >
-                <span className={styles.methodIcon} aria-hidden="true">▧</span>
+            
+            {/* BLOCO DA ETAPA 2 - Oculto quando a Visualização estiver ativa */}
+            <div style={{ display: showPreview ? "none" : "block" }}>
+              <header className={styles.customizerHeader}>
                 <div>
-                  <strong>Enviar minha logo</strong>
-                  <small>
-                    Envie PNG, JPG, WEBP ou SVG. O backend vetoriza e encaixa
-                    automaticamente no formato.
-                  </small>
+                  <span>Formato escolhido</span>
+                  <h3>{selectedFormat.title}</h3>
+                  <p>{selectedFormat.sku} · acrílico dourado</p>
                 </div>
-                <span className={styles.methodArrow} aria-hidden="true">→</span>
-              </button>
+                <button onClick={closeCustomizer} type="button">
+                  Trocar formato
+                </button>
+              </header>
 
-              <button
-                className={`${styles.methodCard} ${
-                  personalizationMode === "text" ? styles.methodCardActive : ""
-                }`}
-                onClick={() => choosePersonalizationMode("text")}
-                type="button"
-              >
-                <span className={styles.methodIcon} aria-hidden="true">Aa</span>
-                <div>
-                  <strong>Criar uma escrita</strong>
-                  <small>
-                    Digite o nome ou frase, escolha uma fonte e veja o texto
-                    centralizado no espaço disponível.
-                  </small>
+              <div className={styles.steps} aria-label="Etapas da personalização">
+                <div className={styles.stepComplete}>
+                  <span>1</span>
+                  <strong>Formato</strong>
+                  <small>Concluído</small>
                 </div>
-                <span className={styles.methodArrow} aria-hidden="true">→</span>
-              </button>
-            </div>
-
-            {personalizationMode === "logo" ? (
-              <form className={styles.formCard} onSubmit={generateLogoPreview}>
-                <div className={styles.formHeading}>
-                  <span>Opção escolhida</span>
-                  <h4>Enviar sua logo</h4>
-                  <p>
-                    Logos nítidas e com bom contraste produzem um resultado melhor.
-                    Arquivos SVG são usados diretamente, sem vetorização por IA.
-                  </p>
+                <div className={personalizationMode ? styles.stepComplete : styles.stepActive}>
+                  <span>2</span>
+                  <strong>Personalização</strong>
+                  <small>{personalizationMode ? "Escolhida" : "Agora"}</small>
                 </div>
+                <div className={showPreview ? styles.stepComplete : ""}>
+                  <span>3</span>
+                  <strong>Visualização</strong>
+                  <small>{showPreview ? "Gerada" : "Próxima"}</small>
+                </div>
+              </div>
 
-                <label
-                  className={`${styles.uploadBox} ${
-                    isDraggingLogo ? styles.uploadBoxDragging : ""
+              <div className={styles.customizerIntro}>
+                <span className={styles.customizerKicker}>Etapa 2</span>
+                <h3>Como você deseja personalizar?</h3>
+                <p>
+                  Escolha uma opção. Você poderá trocar antes de finalizar esta
+                  visualização.
+                </p>
+              </div>
+
+              <div className={styles.methodGrid}>
+                <button
+                  className={`${styles.methodCard} ${
+                    personalizationMode === "logo" ? styles.methodCardActive : ""
                   }`}
-                  onDragEnter={(event) => {
-                    event.preventDefault();
-                    setIsDraggingLogo(true);
-                  }}
-                  onDragLeave={(event) => {
-                    event.preventDefault();
-                    setIsDraggingLogo(false);
-                  }}
-                  onDragOver={(event) => event.preventDefault()}
-                  onDrop={handleLogoDrop}
+                  onClick={() => choosePersonalizationMode("logo")}
+                  type="button"
                 >
-                  <input
-                    accept="image/png,image/jpeg,image/webp,image/svg+xml,.svg"
-                    onChange={handleLogoInput}
-                    type="file"
-                  />
-                  <span className={styles.uploadIcon} aria-hidden="true">↑</span>
-                  {logoFile ? (
-                    <div className={styles.fileSelected}>
-                      <strong>{logoFile.name}</strong>
-                      <small>{formatFileSize(logoFile.size)}</small>
-                    </div>
-                  ) : (
-                    <div>
-                      <strong>Clique ou arraste sua logo aqui</strong>
-                      <small>PNG, JPG, WEBP ou SVG · máximo de 15 MB</small>
-                    </div>
-                  )}
-                </label>
-
-                <label className={styles.field}>
-                  <span>Observação para a vetorização <small>(opcional)</small></span>
-                  <input
-                    maxLength={180}
-                    onChange={(event) => setLogoPrompt(event.target.value)}
-                    placeholder="Ex.: manter somente o símbolo e engrossar letras finas"
-                    type="text"
-                    value={logoPrompt}
-                  />
-                </label>
+                  <span className={styles.methodIcon} aria-hidden="true">▧</span>
+                  <div>
+                    <strong>Enviar minha logo</strong>
+                    <small>
+                      Envie PNG, JPG, WEBP ou SVG. O backend vetoriza e encaixa
+                      automaticamente no formato.
+                    </small>
+                  </div>
+                  <span className={styles.methodArrow} aria-hidden="true">→</span>
+                </button>
 
                 <button
-                  className={styles.generateButton}
-                  disabled={!logoFile || isGeneratingPreview}
-                  type="submit"
+                  className={`${styles.methodCard} ${
+                    personalizationMode === "text" ? styles.methodCardActive : ""
+                  }`}
+                  onClick={() => choosePersonalizationMode("text")}
+                  type="button"
                 >
-                  {isGeneratingPreview ? "Preparando sua logo..." : "Gerar visualização da logo"}
-                  <span aria-hidden="true">→</span>
+                  <span className={styles.methodIcon} aria-hidden="true">Aa</span>
+                  <div>
+                    <strong>Criar uma escrita</strong>
+                    <small>
+                      Digite o nome ou frase, escolha uma fonte e veja o texto
+                      centralizado no espaço disponível.
+                    </small>
+                  </div>
+                  <span className={styles.methodArrow} aria-hidden="true">→</span>
                 </button>
-              </form>
-            ) : null}
-
-            {personalizationMode === "text" ? (
-              <form className={styles.formCard} onSubmit={generateTextPreview}>
-                <div className={styles.formHeading}>
-                  <span>Opção escolhida</span>
-                  <h4>Criar uma escrita</h4>
-                  <p>
-                    O editor transforma o texto em curvas, centraliza e amplia
-                    automaticamente até o limite seguro do formato.
-                  </p>
-                </div>
-
-                <label className={styles.field}>
-                  <span>O que deseja escrever?</span>
-                  <textarea
-                    maxLength={90}
-                    onChange={(event) => setTextValue(event.target.value)}
-                    placeholder="Ex.: Ateliê da Ana"
-                    rows={3}
-                    value={textValue}
-                  />
-                  <small>{textValue.length}/90 caracteres · quebras de linha são permitidas</small>
-                </label>
-
-                <label className={styles.field}>
-                  <span>Escolha a fonte</span>
-                  <select
-                    disabled={!editorReady}
-                    onChange={(event) => setSelectedFont(event.target.value)}
-                    style={{ fontFamily: selectedFont || undefined }}
-                    value={selectedFont}
-                  >
-                    {!editorReady ? <option>Carregando fontes...</option> : null}
-                    {editorReady && fontOptions.length === 0 ? (
-                      <option value="">Nenhuma fonte disponível</option>
-                    ) : null}
-                    {editorReady
-                      ? fontOptions.map((font) => (
-                          <option key={font} style={{ fontFamily: font }} value={font}>
-                            {font}
-                          </option>
-                        ))
-                      : null}
-                  </select>
-                </label>
-
-                <div className={styles.textSample}>
-                  <span>Prévia da fonte</span>
-                  <strong style={{ fontFamily: selectedFont || undefined }}>
-                    {textValue.trim() || "Sua marca aqui"}
-                  </strong>
-                  <small>
-                    Esta amostra mostra apenas a fonte. O encaixe verdadeiro aparece
-                    na visualização do aplique.
-                  </small>
-                </div>
-
-                <button
-                  className={styles.generateButton}
-                  disabled={
-                    !textValue.trim() ||
-                    !editorReady ||
-                    !selectedFont ||
-                    isGeneratingPreview
-                  }
-                  type="submit"
-                >
-                  {isGeneratingPreview
-                    ? "Ajustando sua escrita..."
-                    : "Gerar visualização da escrita"}
-                  <span aria-hidden="true">→</span>
-                </button>
-              </form>
-            ) : null}
-
-            {personalizationError ? (
-              <div className={styles.personalizationError} role="alert">
-                <strong>Não foi possível continuar</strong>
-                <span>{personalizationError}</span>
               </div>
-            ) : null}
 
+              {personalizationMode === "logo" ? (
+                <form className={styles.formCard} onSubmit={generateLogoPreview}>
+                  <div className={styles.formHeading}>
+                    <span>Opção escolhida</span>
+                    <h4>Enviar sua logo</h4>
+                    <p>
+                      Logos nítidas e com bom contraste produzem um resultado melhor.
+                      Arquivos SVG são usados diretamente, sem vetorização por IA.
+                    </p>
+                  </div>
+
+                  <label
+                    className={`${styles.uploadBox} ${
+                      isDraggingLogo ? styles.uploadBoxDragging : ""
+                    }`}
+                    onDragEnter={(event) => {
+                      event.preventDefault();
+                      setIsDraggingLogo(true);
+                    }}
+                    onDragLeave={(event) => {
+                      event.preventDefault();
+                      setIsDraggingLogo(false);
+                    }}
+                    onDragOver={(event) => event.preventDefault()}
+                    onDrop={handleLogoDrop}
+                  >
+                    <input
+                      accept="image/png,image/jpeg,image/webp,image/svg+xml,.svg"
+                      onChange={handleLogoInput}
+                      type="file"
+                    />
+                    <span className={styles.uploadIcon} aria-hidden="true">↑</span>
+                    {logoFile ? (
+                      <div className={styles.fileSelected}>
+                        <strong>{logoFile.name}</strong>
+                        <small>{formatFileSize(logoFile.size)}</small>
+                      </div>
+                    ) : (
+                      <div>
+                        <strong>Clique ou arraste sua logo aqui</strong>
+                        <small>PNG, JPG, WEBP ou SVG · máximo de 15 MB</small>
+                      </div>
+                    )}
+                  </label>
+
+                  <label className={styles.field}>
+                    <span>Observação para a vetorização <small>(opcional)</small></span>
+                    <input
+                      maxLength={180}
+                      onChange={(event) => setLogoPrompt(event.target.value)}
+                      placeholder="Ex.: manter somente o símbolo e engrossar letras finas"
+                      type="text"
+                      value={logoPrompt}
+                    />
+                  </label>
+
+                  <button
+                    className={styles.generateButton}
+                    disabled={!logoFile || isGeneratingPreview}
+                    type="submit"
+                  >
+                    {isGeneratingPreview ? "Preparando sua logo..." : "Gerar visualização da logo"}
+                    <span aria-hidden="true">→</span>
+                  </button>
+                </form>
+              ) : null}
+
+              {personalizationMode === "text" ? (
+                <form className={styles.formCard} onSubmit={generateTextPreview}>
+                  <div className={styles.formHeading}>
+                    <span>Opção escolhida</span>
+                    <h4>Criar uma escrita</h4>
+                    <p>
+                      O editor transforma o texto em curvas, centraliza e amplia
+                      automaticamente até o limite seguro do formato.
+                    </p>
+                  </div>
+
+                  <label className={styles.field}>
+                    <span>O que deseja escrever?</span>
+                    <textarea
+                      maxLength={90}
+                      onChange={(event) => setTextValue(event.target.value)}
+                      placeholder="Ex.: Ateliê da Ana"
+                      rows={3}
+                      value={textValue}
+                    />
+                    <small>{textValue.length}/90 caracteres · quebras de linha são permitidas</small>
+                  </label>
+
+                  <label className={styles.field}>
+                    <span>Escolha a fonte</span>
+                    <select
+                      disabled={!editorReady}
+                      onChange={(event) => setSelectedFont(event.target.value)}
+                      style={{ fontFamily: selectedFont || undefined }}
+                      value={selectedFont}
+                    >
+                      {!editorReady ? <option>Carregando fontes...</option> : null}
+                      {editorReady && fontOptions.length === 0 ? (
+                        <option value="">Nenhuma fonte disponível</option>
+                      ) : null}
+                      {editorReady
+                        ? fontOptions.map((font) => (
+                            <option key={font} style={{ fontFamily: font }} value={font}>
+                              {font}
+                            </option>
+                          ))
+                        : null}
+                    </select>
+                  </label>
+
+                  <div className={styles.textSample}>
+                    <span>Prévia da fonte</span>
+                    <strong style={{ fontFamily: selectedFont || undefined }}>
+                      {textValue.trim() || "Sua marca aqui"}
+                    </strong>
+                    <small>
+                      Esta amostra mostra apenas a fonte. O encaixe verdadeiro aparece
+                      na visualização do aplique.
+                    </small>
+                  </div>
+
+                  <button
+                    className={styles.generateButton}
+                    disabled={
+                      !textValue.trim() ||
+                      !editorReady ||
+                      !selectedFont ||
+                      isGeneratingPreview
+                    }
+                    type="submit"
+                  >
+                    {isGeneratingPreview
+                      ? "Ajustando sua escrita..."
+                      : "Gerar visualização da escrita"}
+                    <span aria-hidden="true">→</span>
+                  </button>
+                </form>
+              ) : null}
+
+              {personalizationError ? (
+                <div className={styles.personalizationError} role="alert">
+                  <strong>Não foi possível continuar</strong>
+                  <span>{personalizationError}</span>
+                </div>
+              ) : null}
+            </div>
+
+            {/* BLOCO DA ETAPA 3 - Tela Exclusiva (Mostrado APENAS quando a visualização estiver ativa) */}
             <div
               className={`${styles.previewArea} ${
                 showPreview ? styles.previewAreaVisible : styles.previewAreaHidden
               }`}
-              ref={previewRef}
+              style={{
+                opacity: showPreview ? 1 : 0,
+                transition: "opacity 0.3s ease-in-out"
+              }}
             >
               {showPreview ? (
                 <div className={styles.previewHeader}>
                   <div>
-                    <span>Etapa 3 · somente visualização</span>
-                    <h3>Veja como seu aplique está ficando</h3>
+                    <span>Etapa 3 · Tela de Visualização</span>
+                    <h3>Veja como seu aplique ficou</h3>
                     <p>
                       Nenhuma edição, salvamento ou pedido é realizado nesta etapa.
                     </p>
                   </div>
+                  
+                  {/* Botão estiloso para voltar para a tela anterior */}
                   <button
                     onClick={() => {
                       setShowPreview(false);
@@ -866,8 +872,17 @@ export function CrochetFormatSelector({
                       lastSentPreviewIdRef.current = null;
                     }}
                     type="button"
+                    style={{
+                      backgroundColor: "#933342",
+                      color: "#fff",
+                      padding: "10px 20px",
+                      borderRadius: "8px",
+                      border: "none",
+                      fontWeight: 600,
+                      cursor: "pointer"
+                    }}
                   >
-                    Alterar personalização
+                    ← Voltar e alterar
                   </button>
                 </div>
               ) : null}
