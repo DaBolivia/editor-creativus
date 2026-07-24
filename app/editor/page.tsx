@@ -41,11 +41,13 @@ export default function EditorIsolado() {
   const lastHeight = useRef<number>(0);
 
   useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+
     const sendHeight = () => {
       if (contentRef.current) {
-        const height = contentRef.current.offsetHeight;
+        // getBoundingClientRect é a medição mais precisa que o navegador pode fornecer
+        const height = contentRef.current.getBoundingClientRect().height;
         
-        // Trava de segurança: Só redimensiona se a diferença for maior que 5 pixels
         if (Math.abs(height - lastHeight.current) > 5) {
           lastHeight.current = height;
           window.parent.postMessage({ type: 'resize', height: height }, '*');
@@ -53,25 +55,32 @@ export default function EditorIsolado() {
       }
     };
 
-    setTimeout(sendHeight, 150);
+    // Dá um tempo maior no carregamento inicial
+    setTimeout(sendHeight, 300);
 
     const observer = new ResizeObserver(() => {
-      // requestAnimationFrame garante que o aviso só seja enviado quando a tela estiver estável
-      requestAnimationFrame(() => {
+      // DEBOUNCE: Cancela a medição anterior e espera 150ms. 
+      // Isso ignora os milissegundos em que a imagem ainda está gigante.
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
         sendHeight();
-      });
+      }, 150);
     });
     
     if (contentRef.current) {
       observer.observe(contentRef.current);
     }
 
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      clearTimeout(timeoutId);
+    };
   }, []);
 
   return (
-    <main style={{ backgroundColor: "#F6EBEA", overflow: "hidden" }}>
-      <div ref={contentRef}>
+    <main style={{ backgroundColor: "#F6EBEA" }}>
+      {/* O height: "fit-content" força a caixa a abraçar o conteúdo bem apertado */}
+      <div ref={contentRef} style={{ height: "fit-content", overflow: "hidden" }}>
         <CrochetFormatSelector formats={crochetFormats} materialColor="DOU" />
       </div>
     </main>
