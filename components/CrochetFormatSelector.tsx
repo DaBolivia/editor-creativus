@@ -182,6 +182,7 @@ export function CrochetFormatSelector({
   const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
   const [personalizationError, setPersonalizationError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
+  const [isSaving, setIsSaving] = useState(false); // Novo estado para controle de salvamento
   const lastSentPreviewIdRef = useRef<string | null>(null);
 
   const formatKey = useMemo(
@@ -474,6 +475,91 @@ export function CrochetFormatSelector({
     if (fallback) fallback.hidden = false;
   }
 
+  async function handleApproveAndSend() {
+    if (!selectedFormat) return;
+    
+    setIsSaving(true);
+    setPersonalizationError("");
+    const editorWindow = iframeRef.current?.contentWindow;
+    
+    if (!editorWindow) {
+      setPersonalizationError("Não foi possível conectar ao visualizador.");
+      setIsSaving(false);
+      return;
+    }
+
+    try {
+      // 1. Pede o SVG final para o Iframe e aguarda a resposta
+      const exportRequestId = `export-${Date.now()}`;
+      const editorOrigin = "https://merry-bublanina-04dad8.netlify.app";
+      
+      const exportedSvg = await new Promise<string>((resolve, reject) => {
+        const timeoutId = setTimeout(() => {
+          window.removeEventListener("message", messageHandler);
+          reject(new Error("Tempo esgotado ao tentar finalizar. Tente novamente."));
+        }, 15000);
+
+        const messageHandler = (event: MessageEvent) => {
+          if (event.origin !== editorOrigin) return;
+          
+          if (event.data?.type === "CREATIVUS_SVG_EDITOR_EXPORT") {
+            clearTimeout(timeoutId);
+            window.removeEventListener("message", messageHandler);
+            resolve(event.data.svg);
+          }
+          if (event.data?.type === "CREATIVUS_SVG_EDITOR_ERROR") {
+            clearTimeout(timeoutId);
+            window.removeEventListener("message", messageHandler);
+            reject(new Error(event.data.message || "Erro no editor."));
+          }
+        };
+
+        window.addEventListener("message", messageHandler);
+
+        editorWindow.postMessage({
+          type: "CREATIVUS_SVG_EDITOR_REQUEST_EXPORT",
+          requestId: exportRequestId
+        }, editorOrigin);
+      });
+
+      // 2. Salva o SVG no backend
+      const baseUrl = "https://producao-arquivos-production-8a4d.up.railway.app";
+      const saveResponse = await fetch(`${baseUrl}/api/save-standalone-svg`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          svg: exportedSvg,
+          name: `Tag Personalizada - ${selectedFormat.sku}`,
+          formatSku: selectedFormat.sku,
+          sourceSystem: "lp-elementor",
+          whatsapp: "553798081254" // Enviando o whatsapp de forma opcional para o backend conforme a doc
+        })
+      });
+      
+      const saveData = await saveResponse.json();
+      
+      if (!saveData.success) {
+        throw new Error(saveData.message || saveData.error || "Erro ao salvar a tag.");
+      }
+
+      // 3. Monta o link do WhatsApp e redireciona
+      const STORE_WHATSAPP_NUMBER = "553798081254"; // Número solicitado
+      const textMessage = `Olá! Gostaria de fazer o pedido da minha tag.\n*Modelo:* ${selectedFormat.title} (${selectedFormat.sku})\n*ID do Arquivo:* ${saveData.id}`;
+      
+      const waUrl = `https://wa.me/${STORE_WHATSAPP_NUMBER}?text=${encodeURIComponent(textMessage)}`;
+      
+      // Abre o whatsapp em uma nova aba
+      window.open(waUrl, "_blank");
+
+    } catch (error) {
+      setPersonalizationError(
+        error instanceof Error ? error.message : "Erro inesperado ao aprovar."
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
   // Estilo padronizado para os botões de voltar
   const btnVoltarStyle = {
     backgroundColor: "#933342",
@@ -709,6 +795,34 @@ export function CrochetFormatSelector({
                 <div className={styles.editorLoading}>Preparando o visualizador...</div>
               )}
             </div>
+
+            {/* NOVO BOTÃO DE APROVAR E ENVIAR PARA WHATSAPP */}
+            <div style={{ display: 'flex', justifyContent: 'center', marginTop: '25px', paddingBottom: '20px' }}>
+              <button
+                onClick={handleApproveAndSend}
+                disabled={isSaving || !editorReady}
+                type="button"
+                style={{
+                  backgroundColor: '#25D366', // Cor padrão do WhatsApp
+                  color: '#fff',
+                  padding: '16px 32px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  fontWeight: 700,
+                  fontSize: '18px',
+                  cursor: isSaving ? 'wait' : 'pointer',
+                  boxShadow: '0 4px 6px rgba(37, 211, 102, 0.3)',
+                  transition: 'background-color 0.2s',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  opacity: (isSaving || !editorReady) ? 0.7 : 1
+                }}
+              >
+                {isSaving ? "Processando seu arquivo..." : "Aprovar Tag e Enviar via WhatsApp"}
+              </button>
+            </div>
+
           </div>
         )}
 
