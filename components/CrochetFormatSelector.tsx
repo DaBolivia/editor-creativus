@@ -542,20 +542,27 @@ export function CrochetFormatSelector({
         throw new Error(saveData.message || saveData.error || "Erro ao salvar a tag.");
       }
 
-      // 3. Monta o link do WhatsApp e redireciona
-      const STORE_WHATSAPP_NUMBER = "553798081254"; // Número solicitado
+      // 3. Monta a mensagem e codifica
+      const STORE_WHATSAPP_NUMBER = "553798081254"; 
       const textMessage = `Olá! Gostaria de fazer o pedido da minha tag.\n*Modelo:* ${selectedFormat.title} (${selectedFormat.sku})\n*ID do Arquivo:* ${saveData.id}`;
-      
-      const waUrl = `https://wa.me/${STORE_WHATSAPP_NUMBER}?text=${encodeURIComponent(textMessage)}`;
+      const encodedMsg = encodeURIComponent(textMessage);
       
       // Verifica se o aparelho é um iOS (iPhone/iPad)
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
       if (isIOS) {
-        // No iOS, redirecionamos a aba atual. O sistema vai interceptar e abrir o app do WhatsApp.
-        window.location.href = waUrl;
+        // Uso do Deep Link nativo do aplicativo no iOS
+        const iosUrl = `whatsapp://send?phone=${STORE_WHATSAPP_NUMBER}&text=${encodedMsg}`;
+        
+        // Técnica do "Clique Fantasma" para burlar o bloqueio do Safari
+        const linkInvisivel = document.createElement('a');
+        linkInvisivel.href = iosUrl;
+        document.body.appendChild(linkInvisivel);
+        linkInvisivel.click();
+        document.body.removeChild(linkInvisivel);
       } else {
-        // Em Androids e PCs, abrir em uma nova aba funciona perfeitamente
+        // Padrão para Android e PC (wa.me)
+        const waUrl = `https://wa.me/${STORE_WHATSAPP_NUMBER}?text=${encodedMsg}`;
         window.open(waUrl, "_blank");
       }
 
