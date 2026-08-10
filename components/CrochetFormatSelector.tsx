@@ -548,8 +548,16 @@ export function CrochetFormatSelector({
       
       const waUrl = `https://wa.me/${STORE_WHATSAPP_NUMBER}?text=${encodeURIComponent(textMessage)}`;
       
-      // Abre o whatsapp em uma nova aba
-      window.open(waUrl, "_blank");
+      // Verifica se o aparelho é um iOS (iPhone/iPad)
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+      if (isIOS) {
+        // No iOS, redirecionamos a aba atual. O sistema vai interceptar e abrir o app do WhatsApp.
+        window.location.href = waUrl;
+      } else {
+        // Em Androids e PCs, abrir em uma nova aba funciona perfeitamente
+        window.open(waUrl, "_blank");
+      }
 
     } catch (error) {
       setPersonalizationError(
@@ -558,7 +566,6 @@ export function CrochetFormatSelector({
     } finally {
       setIsSaving(false);
     }
-  }
 
   // Estilo padronizado para os botões de voltar
   const btnVoltarStyle = {
