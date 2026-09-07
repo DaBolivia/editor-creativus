@@ -157,7 +157,7 @@ export function CrochetFormatSelector({
   materialColor = "DOU",
 }: CrochetFormatSelectorProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  const containerRef = useRef<HTMLElement>(null); // REF adicionada para medir a altura
+  const containerRef = useRef<HTMLElement>(null);
 
   const [results, setResults] = useState<FormatLoadResult[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -182,7 +182,7 @@ export function CrochetFormatSelector({
   const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
   const [personalizationError, setPersonalizationError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
-  const [isSaving, setIsSaving] = useState(false); // Novo estado para controle de salvamento
+  const [isSaving, setIsSaving] = useState(false);
   const lastSentPreviewIdRef = useRef<string | null>(null);
 
   const formatKey = useMemo(
@@ -334,14 +334,23 @@ export function CrochetFormatSelector({
     const sendHeight = () => {
       if (containerRef.current) {
         const height = containerRef.current.getBoundingClientRect().height;
-        window.parent.postMessage({ type: 'resize', height: height }, '*');
+        window.parent.postMessage({ type: "resize", height: height }, "*");
       }
     };
 
-    // Aguarda a tela renderizar e manda a altura
     const timerId = setTimeout(sendHeight, 150);
     return () => clearTimeout(timerId);
   }, [selectedSku, showPreview, personalizationMode, logoFile, isGeneratingPreview, isLoading]);
+
+  // Avisa a página pai (Elementor) para rolar até o topo do iframe
+  function scrollToTopInParent() {
+    if (typeof window !== "undefined" && window.parent) {
+      window.parent.postMessage({ type: "scrollToTop" }, "*");
+    }
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }
 
   function resetPersonalization() {
     setPersonalizationMode(null);
@@ -360,13 +369,13 @@ export function CrochetFormatSelector({
     if (!format.success) return;
     setSelectedSku(format.sku);
     resetPersonalization();
-    window.scrollTo({ top: 0, behavior: 'smooth' }); // Mantém no topo ao trocar de tela
+    scrollToTopInParent();
   }
 
   function closeCustomizer() {
     setSelectedSku(null);
     resetPersonalization();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    scrollToTopInParent();
   }
 
   function choosePersonalizationMode(mode: Exclude<PersonalizationMode, null>) {
@@ -434,7 +443,7 @@ export function CrochetFormatSelector({
         kind: "logo",
         svg: result.finalSvg,
       });
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      scrollToTopInParent();
     } catch (error) {
       setIsGeneratingPreview(false);
       setPersonalizationError(error instanceof Error ? error.message : "Erro ao gerar logo.");
@@ -466,7 +475,7 @@ export function CrochetFormatSelector({
       autoText: cleanText,
       autoTextFont: selectedFont,
     });
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    scrollToTopInParent();
   }
 
   function handlePreviewError(event: SyntheticEvent<HTMLImageElement>) {
@@ -477,11 +486,11 @@ export function CrochetFormatSelector({
 
   async function handleApproveAndSend() {
     if (!selectedFormat) return;
-    
+
     setIsSaving(true);
     setPersonalizationError("");
     const editorWindow = iframeRef.current?.contentWindow;
-    
+
     if (!editorWindow) {
       setPersonalizationError("Não foi possível conectar ao visualizador.");
       setIsSaving(false);
@@ -492,7 +501,7 @@ export function CrochetFormatSelector({
       // 1. Pede o SVG final para o Iframe e aguarda a resposta
       const exportRequestId = `export-${Date.now()}`;
       const editorOrigin = "https://merry-bublanina-04dad8.netlify.app";
-      
+
       const exportedSvg = await new Promise<string>((resolve, reject) => {
         const timeoutId = setTimeout(() => {
           window.removeEventListener("message", messageHandler);
@@ -501,7 +510,7 @@ export function CrochetFormatSelector({
 
         const messageHandler = (event: MessageEvent) => {
           if (event.origin !== editorOrigin) return;
-          
+
           if (event.data?.type === "CREATIVUS_SVG_EDITOR_EXPORT") {
             clearTimeout(timeoutId);
             window.removeEventListener("message", messageHandler);
@@ -518,7 +527,7 @@ export function CrochetFormatSelector({
 
         editorWindow.postMessage({
           type: "CREATIVUS_SVG_EDITOR_REQUEST_EXPORT",
-          requestId: exportRequestId
+          requestId: exportRequestId,
         }, editorOrigin);
       });
 
@@ -532,49 +541,46 @@ export function CrochetFormatSelector({
           name: `Tag Personalizada - ${selectedFormat.sku}`,
           formatSku: selectedFormat.sku,
           sourceSystem: "lp-elementor",
-          whatsapp: "553798081254" // Enviando o whatsapp de forma opcional para o backend conforme a doc
-        })
+          whatsapp: "553798081254",
+        }),
       });
-      
+
       const saveData = await saveResponse.json();
-      
+
       if (!saveData.success) {
         throw new Error(saveData.message || saveData.error || "Erro ao salvar a tag.");
       }
 
       // 3. Monta a mensagem e codifica
-      const STORE_WHATSAPP_NUMBER = "553798081254"; 
+      const STORE_WHATSAPP_NUMBER = "553798081254";
       const textMessage = `Olá! Gostaria de fazer o pedido da minha tag.\n*Modelo:* ${selectedFormat.title} (${selectedFormat.sku})\n*ID do Arquivo:* ${saveData.id}`;
       const encodedMsg = encodeURIComponent(textMessage);
-      
+
       // Verifica se o aparelho é um iOS (iPhone/iPad)
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      const isIOS =
+        /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+        (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 
       if (isIOS) {
-        // Uso do Deep Link nativo do aplicativo no iOS
         const iosUrl = `whatsapp://send?phone=${STORE_WHATSAPP_NUMBER}&text=${encodedMsg}`;
-        
-        // Técnica do "Clique Fantasma" para burlar o bloqueio do Safari
-        const linkInvisivel = document.createElement('a');
+        const linkInvisivel = document.createElement("a");
         linkInvisivel.href = iosUrl;
         document.body.appendChild(linkInvisivel);
         linkInvisivel.click();
         document.body.removeChild(linkInvisivel);
       } else {
-        // Padrão para Android e PC (wa.me)
         const waUrl = `https://wa.me/${STORE_WHATSAPP_NUMBER}?text=${encodedMsg}`;
         window.open(waUrl, "_blank");
       }
-
     } catch (error) {
       setPersonalizationError(
-        error instanceof Error ? error.message : "Erro inesperado ao aprovar."
+        error instanceof Error ? error.message : "Erro inesperado ao aprovar.",
       );
     } finally {
       setIsSaving(false);
     }
+  }
 
-  // Estilo padronizado para os botões de voltar
   const btnVoltarStyle = {
     backgroundColor: "#933342",
     color: "#fff",
@@ -583,19 +589,18 @@ export function CrochetFormatSelector({
     border: "none",
     fontWeight: 600,
     cursor: "pointer",
-    fontSize: "14px"
+    fontSize: "14px",
   };
 
   return (
-    <section 
-      ref={containerRef} 
-      className={styles.section} 
-      id="escolher-formato" 
-      style={{ padding: '45px 0 15px' }}
+    <section
+      ref={containerRef}
+      className={styles.section}
+      id="escolher-formato"
+      style={{ padding: "45px 0 15px" }}
     >
       <div className="container">
-        
-        {/* TELA 1 - SELEÇÃO DE FORMATO (Fica oculta quando as outras estão ativas) */}
+        {/* TELA 1 - SELEÇÃO DE FORMATO */}
         <div style={{ display: (!selectedFormat && !showPreview) ? "block" : "none" }}>
           <div className={styles.heading}>
             <div>
@@ -635,16 +640,14 @@ export function CrochetFormatSelector({
                   >
                     <div className={styles.preview}>
                       {format.success ? (
-                        <>
-                          <Image
-                            alt={`Prévia do formato ${format.title}`}
-                            height={180}
-                            onError={handlePreviewError}
-                            src={createSvgPreviewUrl(format.svgData, materialColor)}
-                            unoptimized
-                            width={220}
-                          />
-                        </>
+                        <Image
+                          alt={`Prévia do formato ${format.title}`}
+                          height={180}
+                          onError={handlePreviewError}
+                          src={createSvgPreviewUrl(format.svgData, materialColor)}
+                          unoptimized
+                          width={220}
+                        />
                       ) : (
                         <span className={styles.previewFallback}>Formato indisponível</span>
                       )}
@@ -665,18 +668,36 @@ export function CrochetFormatSelector({
         {/* TELA 2 - CONFIGURAÇÃO DE UPLOAD/TEXTO */}
         {selectedFormat && (
           <div style={{ display: (!showPreview && selectedFormat) ? "block" : "none" }}>
-            <header className={styles.customizerHeader} style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', justifyContent: 'space-between', alignItems: 'center' }}>
+            <header
+              className={styles.customizerHeader}
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: "15px",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
               <div>
-                <span style={{ fontSize: '12px', textTransform: 'uppercase', color: '#933342', fontWeight: 600 }}>Etapa 2 · Personalização</span>
-                <h3 style={{ margin: '5px 0', fontSize: '24px' }}>{selectedFormat.title}</h3>
-                <p style={{ margin: 0, color: '#666' }}>{selectedFormat.sku} · acrílico dourado</p>
+                <span
+                  style={{
+                    fontSize: "12px",
+                    textTransform: "uppercase",
+                    color: "#933342",
+                    fontWeight: 600,
+                  }}
+                >
+                  Etapa 2 · Personalização
+                </span>
+                <h3 style={{ margin: "5px 0", fontSize: "24px" }}>{selectedFormat.title}</h3>
+                <p style={{ margin: 0, color: "#666" }}>{selectedFormat.sku} · acrílico dourado</p>
               </div>
               <button onClick={closeCustomizer} style={btnVoltarStyle} type="button">
                 ← Voltar aos modelos
               </button>
             </header>
 
-            <div className={styles.methodGrid} style={{ marginTop: '30px' }}>
+            <div className={styles.methodGrid} style={{ marginTop: "30px" }}>
               <button
                 className={`${styles.methodCard} ${personalizationMode === "logo" ? styles.methodCardActive : ""}`}
                 onClick={() => choosePersonalizationMode("logo")}
@@ -702,14 +723,29 @@ export function CrochetFormatSelector({
               </button>
             </div>
 
-            {/* FORMULÁRIO LOGO */}
             {personalizationMode === "logo" && (
               <form className={styles.formCard} onSubmit={generateLogoPreview}>
                 <div className={styles.formHeading}>
                   <h4>Enviar sua logo</h4>
                 </div>
-                <label className={`${styles.uploadBox} ${isDraggingLogo ? styles.uploadBoxDragging : ""}`} onDragEnter={(e) => { e.preventDefault(); setIsDraggingLogo(true); }} onDragLeave={(e) => { e.preventDefault(); setIsDraggingLogo(false); }} onDragOver={(e) => e.preventDefault()} onDrop={handleLogoDrop}>
-                  <input accept="image/png,image/jpeg,image/webp,image/svg+xml,.svg" onChange={handleLogoInput} type="file" />
+                <label
+                  className={`${styles.uploadBox} ${isDraggingLogo ? styles.uploadBoxDragging : ""}`}
+                  onDragEnter={(e) => {
+                    e.preventDefault();
+                    setIsDraggingLogo(true);
+                  }}
+                  onDragLeave={(e) => {
+                    e.preventDefault();
+                    setIsDraggingLogo(false);
+                  }}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={handleLogoDrop}
+                >
+                  <input
+                    accept="image/png,image/jpeg,image/webp,image/svg+xml,.svg"
+                    onChange={handleLogoInput}
+                    type="file"
+                  />
                   <span className={styles.uploadIcon} aria-hidden="true">↑</span>
                   {logoFile ? (
                     <div className={styles.fileSelected}>
@@ -725,15 +761,24 @@ export function CrochetFormatSelector({
                 </label>
                 <label className={styles.field}>
                   <span>Observação para a vetorização <small>(opcional)</small></span>
-                  <input maxLength={180} onChange={(e) => setLogoPrompt(e.target.value)} type="text" value={logoPrompt} />
+                  <input
+                    maxLength={180}
+                    onChange={(e) => setLogoPrompt(e.target.value)}
+                    type="text"
+                    value={logoPrompt}
+                  />
                 </label>
-                <button className={styles.generateButton} disabled={!logoFile || isGeneratingPreview} type="submit">
-                  {isGeneratingPreview ? "Preparando sua logo..." : "Gerar visualização da logo"} <span aria-hidden="true">→</span>
+                <button
+                  className={styles.generateButton}
+                  disabled={!logoFile || isGeneratingPreview}
+                  type="submit"
+                >
+                  {isGeneratingPreview ? "Preparando sua logo..." : "Gerar visualização da logo"}{" "}
+                  <span aria-hidden="true">→</span>
                 </button>
               </form>
             )}
 
-            {/* FORMULÁRIO TEXTO */}
             {personalizationMode === "text" && (
               <form className={styles.formCard} onSubmit={generateTextPreview}>
                 <div className={styles.formHeading}>
@@ -741,19 +786,37 @@ export function CrochetFormatSelector({
                 </div>
                 <label className={styles.field}>
                   <span>O que deseja escrever?</span>
-                  <textarea maxLength={90} onChange={(e) => setTextValue(e.target.value)} rows={3} value={textValue} />
+                  <textarea
+                    maxLength={90}
+                    onChange={(e) => setTextValue(e.target.value)}
+                    rows={3}
+                    value={textValue}
+                  />
                 </label>
                 <label className={styles.field}>
                   <span>Escolha a fonte</span>
-                  <select disabled={!editorReady} onChange={(e) => setSelectedFont(e.target.value)} style={{ fontFamily: selectedFont || undefined }} value={selectedFont}>
+                  <select
+                    disabled={!editorReady}
+                    onChange={(e) => setSelectedFont(e.target.value)}
+                    style={{ fontFamily: selectedFont || undefined }}
+                    value={selectedFont}
+                  >
                     {!editorReady && <option>Carregando fontes...</option>}
-                    {editorReady && fontOptions.map((font) => (
-                      <option key={font} style={{ fontFamily: font }} value={font}>{font}</option>
-                    ))}
+                    {editorReady &&
+                      fontOptions.map((font) => (
+                        <option key={font} style={{ fontFamily: font }} value={font}>
+                          {font}
+                        </option>
+                      ))}
                   </select>
                 </label>
-                <button className={styles.generateButton} disabled={!textValue.trim() || !editorReady || !selectedFont || isGeneratingPreview} type="submit">
-                  {isGeneratingPreview ? "Ajustando sua escrita..." : "Gerar visualização da escrita"} <span aria-hidden="true">→</span>
+                <button
+                  className={styles.generateButton}
+                  disabled={!textValue.trim() || !editorReady || !selectedFont || isGeneratingPreview}
+                  type="submit"
+                >
+                  {isGeneratingPreview ? "Ajustando sua escrita..." : "Gerar visualização da escrita"}{" "}
+                  <span aria-hidden="true">→</span>
                 </button>
               </form>
             )}
@@ -769,18 +832,37 @@ export function CrochetFormatSelector({
         {/* TELA 3 - VISUALIZAÇÃO FINAL */}
         {selectedFormat && (
           <div style={{ display: showPreview ? "block" : "none" }}>
-            <div className={styles.previewHeader} style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <div
+              className={styles.previewHeader}
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: "15px",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "20px",
+              }}
+            >
               <div>
-                <span style={{ fontSize: '12px', textTransform: 'uppercase', color: '#933342', fontWeight: 600 }}>Etapa 3 · Tela de Visualização</span>
-                <h3 style={{ margin: '5px 0', fontSize: '24px' }}>Veja como seu aplique ficou</h3>
+                <span
+                  style={{
+                    fontSize: "12px",
+                    textTransform: "uppercase",
+                    color: "#933342",
+                    fontWeight: 600,
+                  }}
+                >
+                  Etapa 3 · Tela de Visualização
+                </span>
+                <h3 style={{ margin: "5px 0", fontSize: "24px" }}>Veja como seu aplique ficou</h3>
               </div>
-              
+
               <button
                 onClick={() => {
                   setShowPreview(false);
                   setPreviewRequest(null);
                   setIsGeneratingPreview(false);
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                  scrollToTopInParent();
                 }}
                 type="button"
                 style={btnVoltarStyle}
@@ -795,7 +877,15 @@ export function CrochetFormatSelector({
               </div>
             )}
 
-            <div style={{ width: '100%', height: '700px', backgroundColor: '#fff', borderRadius: '12px', overflow: 'hidden' }}>
+            <div
+              style={{
+                width: "100%",
+                height: "700px",
+                backgroundColor: "#fff",
+                borderRadius: "12px",
+                overflow: "hidden",
+              }}
+            >
               {editorUrl ? (
                 <iframe
                   allow="clipboard-read; clipboard-write"
@@ -803,43 +893,48 @@ export function CrochetFormatSelector({
                   ref={iframeRef}
                   src={editorUrl}
                   title={`Visualização do formato ${selectedFormat.title}`}
-                  style={{ width: '100%', height: '100%', border: 'none' }}
+                  style={{ width: "100%", height: "100%", border: "none" }}
                 />
               ) : (
                 <div className={styles.editorLoading}>Preparando o visualizador...</div>
               )}
             </div>
 
-            {/* NOVO BOTÃO DE APROVAR E ENVIAR PARA WHATSAPP */}
-            <div style={{ display: 'flex', justifyContent: 'center', marginTop: '25px', paddingBottom: '20px' }}>
+            {/* BOTÃO DE APROVAR E ENVIAR PARA WHATSAPP */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                marginTop: "25px",
+                paddingBottom: "20px",
+              }}
+            >
               <button
                 onClick={handleApproveAndSend}
                 disabled={isSaving || !editorReady}
                 type="button"
                 style={{
-                  backgroundColor: '#25D366', // Cor padrão do WhatsApp
-                  color: '#fff',
-                  padding: '16px 32px',
-                  borderRadius: '8px',
-                  border: 'none',
+                  backgroundColor: "#25D366",
+                  color: "#fff",
+                  padding: "16px 32px",
+                  borderRadius: "8px",
+                  border: "none",
                   fontWeight: 700,
-                  fontSize: '18px',
-                  cursor: isSaving ? 'wait' : 'pointer',
-                  boxShadow: '0 4px 6px rgba(37, 211, 102, 0.3)',
-                  transition: 'background-color 0.2s',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  opacity: (isSaving || !editorReady) ? 0.7 : 1
+                  fontSize: "18px",
+                  cursor: isSaving ? "wait" : "pointer",
+                  boxShadow: "0 4px 6px rgba(37, 211, 102, 0.3)",
+                  transition: "background-color 0.2s",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "10px",
+                  opacity: isSaving || !editorReady ? 0.7 : 1,
                 }}
               >
                 {isSaving ? "Processando seu arquivo..." : "Aprovar Tag e Enviar via WhatsApp"}
               </button>
             </div>
-
           </div>
         )}
-
       </div>
     </section>
   );
